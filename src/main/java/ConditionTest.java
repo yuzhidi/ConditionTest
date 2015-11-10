@@ -7,10 +7,62 @@ import java.util.concurrent.locks.ReentrantLock;
 public class ConditionTest {
 
     public static void main(String[] args) {
-        new A().run();
+//        new A().run();
+        new B().run();
     }
 
 
+}
+
+class B {
+    private Object lock = new Object();
+
+    public void run() {
+        synchronized (lock) {
+            try {
+                System.out.println("main run");
+                new MyThread().start();
+                System.out.println("main wait");
+                lock.wait(20000);
+                System.out.println("main wake");
+            } catch (InterruptedException e) {
+                e.printStackTrace();
+            }
+        }
+    }
+
+    private class MyThread extends Thread {
+        @Override
+        public void run() {
+            try {
+                System.out.println("t1 run");
+                new MyThread2().start();
+                Thread.sleep(5000);
+                System.out.println("t1 week");
+                lock.notify();
+            } catch (InterruptedException e) {
+                e.printStackTrace();
+            } catch (IllegalMonitorStateException e) {
+                e.printStackTrace();
+            }
+        }
+    }
+
+    private class MyThread2 extends Thread {
+        @Override
+        public void run() {
+            synchronized (lock) {
+                try {
+                    System.out.println("t2 run");
+                    Thread.sleep(1000);
+                    System.out.println("t3 week, notifiy all");
+                    lock.notifyAll();
+                } catch (InterruptedException e) {
+                    e.printStackTrace();
+                }
+            }
+        }
+    }
 }
 
 class A {
@@ -32,14 +84,17 @@ class A {
         }
     }
 
-    class MyThread extends Thread {
+    private class MyThread extends Thread {
         @Override
         public void run() {
             System.out.println("Mythread run");
             mNettylock.lock();
             new MyThread2().start();
+
             try {
+                mCondition.await();
                 Thread.currentThread().sleep(5000);
+                System.out.println("Mythread not wait");
                 mCondition.signal();
             } catch (InterruptedException e) {
                 e.printStackTrace();
@@ -50,9 +105,10 @@ class A {
         }
     }
 
-    class MyThread2 extends Thread {
+    private class MyThread2 extends Thread {
         @Override
         public void run() {
+            mNettylock.lock();
             System.out.println("Mythread2 run");
             try {
                 mCondition.signal();
